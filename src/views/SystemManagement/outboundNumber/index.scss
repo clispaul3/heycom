@@ -1,0 +1,14 @@
+$primaryColor: #1890FF;
+.page-container {
+  padding: 0.5em;
+  > div {
+    &.header {
+      padding-bottom: 0.5em;
+      font-size: 18px;
+    }
+    &.body {
+      background: #ffffff;
+      padding: 1em;
+    }
+  }
+}

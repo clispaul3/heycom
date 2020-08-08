@@ -1,0 +1,288 @@
+<template>
+  <div v-loading="loading">
+    <filtrate-handle-view
+      :show-custom-select="true"
+      :show-year-select="true"
+      :custom-default="showType"
+      :custom-options="[{name:'折线图', value: 'line'},{name:'柱状图', value: 'bar'}]"
+      class="filtrate-bar"
+      module-type="customer"
+      @load="loading=true"
+      @change="searchClick"
+      @typeChange="showTypeChange"
+    />
+    <div class="main-container">
+      <div class="content">
+        <h4 class="axis-title">
+          通话总时长
+          <el-tooltip class="item" effect="dark" content="通话总时长：通话时长≥1s的通话时长之和" placement="top">
+            <img src="@/assets/img/question_icon.png" style="width: 20px; height: 20px">
+          </el-tooltip>
+        </h4>
+        <div class="axis-content">
+          <div id="axismain" />
+        </div>
+        <div class="table-content">
+          <el-table :data="list" highlight-current-row>
+            <el-table-column
+              v-for="(item, index) in fieldList"
+              :key="index"
+              :prop="item.field"
+              :label="item.name"
+              :sortable="true"
+              align="center"
+              header-align="center"
+              show-overflow-tooltip
+            />
+          </el-table>
+          <!-- 分页 -->
+          <div class="p-contianer">
+            <el-pagination
+              :current-page="currentPage"
+              :page-sizes="pageSizes"
+              :page-size.sync="pageSize"
+              :total="total"
+              class="p-bar"
+              background
+              layout="total, prev, pager, next, sizes, jumper"
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import base from '../mixins/base'
+import echarts from 'echarts'
+import {
+  queryCallChart,
+  queryCallChartDetail
+} from '@/api/businessIntelligence/calling'
+import Lockr from 'lockr'
+export default {
+  /** 客户转化率分析 */
+  name: 'CustomerConversionStatistics',
+  mixins: [base],
+  data() {
+    return {
+      loading: false,
+      showType: 'line',
+
+      axisOption: null,
+      axisChart: null,
+
+      postParams: {}, // 筛选参数
+      list: [],
+      fieldList: [
+        {
+          field: 'username',
+          name: '员工姓名'
+        },
+        {
+          field: 'callDurationTotalFormat',
+          name: '通话总时长'
+        }
+      ],
+      currentPage: 1,
+      pageSize: Lockr.get('crmPageSizes') || 15,
+      pageSizes: [5, 10, 15, 20],
+      total: 0
+    }
+  },
+  computed: {},
+  mounted() {
+    this.initAxis()
+  },
+  methods: {
+    showTypeChange(type) {
+      this.showType = type
+      this.refreshChartInfo()
+    },
+    refreshChartInfo() {
+      this.axisOption.series[0].type = this.showType
+      this.axisChart.setOption(this.axisOption, true)
+    },
+    /**
+     * 搜索点击
+     */
+    searchClick(params) {
+      this.postParams = { ...params, action: 'totalDuration' }
+      this.getDataList()
+      this.getRecordList()
+    },
+    /**
+     * 图表数据
+     */
+    getDataList() {
+      this.loading = true
+      queryCallChart(this.postParams)
+        .then(res => {
+          this.loading = false
+          const axisList = res.data.chart || []
+          const xAxis = []
+          const seriesData = []
+          axisList.forEach((element, index) => {
+            xAxis.push(element.type)
+            seriesData.push(element.callDurationTotal)
+          })
+
+          // 图形赋值
+          this.axisOption.xAxis[0].data = xAxis
+          this.axisOption.series[0].data = seriesData
+          this.refreshChartInfo()
+        })
+        .catch(() => {
+          this.loading = false
+        })
+    },
+    getRecordList(dataIndex) {
+      this.list = []
+      const page = { page: this.currentPage, limit: this.pageSize }
+      let params = {}
+      if (typeof dataIndex !== 'undefined') {
+        // const dataItem = this.axisList[dataIndex]
+        params.userId = this.postParams.userId
+        params.deptId = this.postParams.deptId
+        params.startTime = dataIndex
+        // params.startTime = dataItem.startTime
+        // params.endTime = dataItem.endTime
+      } else {
+        params = this.postParams
+      }
+      let resultParams = Object.assign(page, params)
+      this.loading = true
+      queryCallChartDetail(resultParams)
+        .then(res => {
+          this.loading = false
+          this.list = res.data.list
+        })
+        .catch(() => {
+          this.loading = false
+        })
+    },
+    /** 柱状图 */
+    initAxis() {
+      this.axisChart = echarts.init(document.getElementById('axismain'))
+      this.axisChart.on('click', params => {
+        // seriesIndex	1：跟进客户数 2:跟进次数  dataIndex 具体的哪条数据
+        // this.getRecordList(params.dataIndex)
+      })
+
+      this.axisOption = {
+        color: ['#6ca2ff'],
+        tooltip: {
+          trigger: 'axis',
+          formatter: '{b} <br/> 通话总时长 : {c} 秒 ',
+          axisPointer: {
+            // 坐标轴指示器，坐标轴触发有效
+            type: 'line' // 默认为直线，可选为：'line' | 'shadow'
+          }
+        },
+        legend: {
+          itemWidth: 14,
+          itemHeight: 2,
+          data: [
+            {
+              name: '通话总时长',
+              // 设置文本为红色
+              textStyle: {
+                color: '#6ca2ff'
+              }
+            }
+          ],
+          icon: 'rect',
+          bottom: '5px'
+        },
+        grid: {
+          top: '40px',
+          left: '10px',
+          right: '50px',
+          bottom: '40px',
+          containLabel: true,
+          borderColor: '#fff'
+        },
+        xAxis: [
+          {
+            type: 'category',
+            data: [],
+            axisTick: {
+              alignWithLabel: true,
+              boundaryGap: true
+            },
+            axisLabel: {
+              color: '#BDBDBD'
+            },
+            /** 坐标轴轴线相关设置 */
+            axisLine: {
+              lineStyle: { color: '#BDBDBD' }
+            },
+            splitLine: {
+              show: false
+            },
+            // 两边留白策略
+            boundaryGap: false
+          }
+        ],
+        yAxis: [
+          {
+            type: 'value',
+            name: '',
+            axisTick: {
+              alignWithLabel: true,
+              lineStyle: { width: 0 }
+            },
+            axisLabel: {
+              color: '#BDBDBD',
+              formatter: '{value}'
+            },
+            /** 坐标轴轴线相关设置 */
+            axisLine: {
+              show: false,
+              lineStyle: { color: '#BDBDBD' }
+            },
+            splitLine: {
+              show: true,
+              lineStyle: {
+                color: '#ccc',
+                type: 'dashed'
+              }
+            }
+          }
+        ],
+        series: [
+          {
+            name: '通话总时长',
+            type: this.showType,
+            barWidth: 15,
+            data: []
+          }
+        ]
+      }
+    },
+    // 更改每页展示数量
+    handleSizeChange(val) {
+      Lockr.set('crmPageSizes', val)
+      this.pageSize = val
+      this.getRecordList()
+    },
+    // 更改当前页数
+    handleCurrentChange(val) {
+      this.currentPage = val
+      this.getRecordList()
+    }
+  }
+}
+</script>
+
+<style rel="stylesheet/scss" lang="scss" scoped>
+@import '../styles/detail.scss';
+/deep/ .el-table thead th.is-leaf,
+.el-table td {
+  background-color: #fafafa;
+  color: #333;
+}
+</style>

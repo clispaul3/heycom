@@ -1,0 +1,65 @@
+.clearfix {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+    clear: both;
+  }
+
+//使用在组件中
+.page-content-area{
+    padding-bottom: 2em;
+    > div {
+      // 头部
+      &.title-status-bar {
+        line-height: 40px;
+        border-bottom: 1px solid #ddd;
+        > h3 {
+          font-weight: normal;
+          float: left;
+          font-size: 16px;
+        }
+        > span {
+          color: red;
+          display: block;
+          float: right;
+          font-size: 12px;
+          &[active="success"]{
+              color: rgb(3, 157, 18);
+          }
+        }
+        &:after {
+          @extend .clearfix;
+        }
+      }
+      //通知部分
+      &.notify-bar {
+        font-size: 14px;
+        color: #999;
+        padding: 0.5em 0;
+        line-height: 2em;
+        display: inline-block;
+        span.bold {
+          font-weight: 700;
+        }
+        > div.tip-area{
+            line-height: 2.5em;
+            color: red;
+        }
+      }
+      //表单部分
+      .el-row{
+          margin-bottom: 1em;
+          .el-col{
+              margin-bottom: 1em;
+          }
+      }
+      //操作按钮部分
+      &.handlebar{
+        padding: 2em;
+        text-align: center;
+      }
+    }  
+  }
